@@ -85,6 +85,18 @@
                         tokenSecret:(NSString *)tokenSecret;
 
 /*
+ Performs the same operation as the above method but uses PUT instead of GET
+ */
++ (NSURLRequest *)URLRequestForPath:(NSString *)path
+                      PUTParameters:(NSDictionary *)parameters
+                             scheme:(NSString *)scheme
+                               host:(NSString *)host
+                        consumerKey:(NSString *)consumerKey
+                     consumerSecret:(NSString *)consumerSecret
+                        accessToken:(NSString *)accessToken
+                        tokenSecret:(NSString *)tokenSecret;
+
+/*
  Creates and returns a URL request that will perform a POST HTTP operation. All
  data will be sent as form URL encoded. Restrictions on the arguments to this
  method are the same as the GET request methods.

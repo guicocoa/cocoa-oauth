@@ -279,6 +279,41 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     
 }
 + (NSURLRequest *)URLRequestForPath:(NSString *)path
+                      PUTParameters:(NSDictionary *)parameters
+                             scheme:(NSString *)scheme
+                               host:(NSString *)host
+                        consumerKey:(NSString *)consumerKey
+                     consumerSecret:(NSString *)consumerSecret
+                        accessToken:(NSString *)accessToken
+                        tokenSecret:(NSString *)tokenSecret {
+    
+    // check parameters
+    if (host == nil || path == nil) { return nil; }
+    
+    // create object
+    GCOAuth *oauth = [[GCOAuth alloc] initWithConsumerKey:consumerKey
+                                           consumerSecret:consumerSecret
+                                              accessToken:accessToken
+                                              tokenSecret:tokenSecret];
+    oauth.HTTPMethod = @"PUT";
+    oauth.requestParameters = parameters;
+    
+    // create url
+    NSString *encodedPath = [path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+    NSString *URLString = [NSString stringWithFormat:@"%@://%@%@", scheme, host, encodedPath];
+    if ([oauth.requestParameters count]) {
+        NSString *query = [GCOAuth queryStringFromParameters:oauth.requestParameters];
+        URLString = [NSString stringWithFormat:@"%@?%@", URLString, query];
+    }
+    oauth.URL = [NSURL URLWithString:URLString];
+    
+    // return
+    NSURLRequest *request = [oauth request];
+    [oauth release];
+    return request;
+    
+}
++ (NSURLRequest *)URLRequestForPath:(NSString *)path
                      POSTParameters:(NSDictionary *)parameters
                                host:(NSString *)host
                         consumerKey:(NSString *)consumerKey
