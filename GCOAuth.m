@@ -215,6 +215,7 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     CFUUIDRef uuid = CFUUIDCreate(NULL);
     CFStringRef string = CFUUIDCreateString(NULL, uuid);
     CFRelease(uuid);
+	[[NSGarbageCollector defaultCollector] enableCollectorForPointer:(void*)string];
     return [(NSString *)string autorelease];
 }
 + (NSString *)timeStamp {
@@ -361,6 +362,7 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                                                                  NULL,
                                                                  CFSTR("!*'();:@&=+$,/?%#[]"),
                                                                  kCFStringEncodingUTF8);
+	[[NSGarbageCollector defaultCollector] enableCollectorForPointer:(void*)string];
     return [(NSString *)string autorelease];
 }
 - (NSString *)pcenNoSlash {
@@ -369,6 +371,7 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                                                                  NULL,
                                                                  CFSTR("!*'();:@&=+$,?%#[]"),
                                                                  kCFStringEncodingUTF8);
+	[[NSGarbageCollector defaultCollector] enableCollectorForPointer:(void*)string];
     return [(NSString *)string autorelease];
 }
 @end
