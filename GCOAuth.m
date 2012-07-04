@@ -75,13 +75,6 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
 
 // generate signature base
 - (NSString *)signatureBase;
-
-@end
-@interface NSString (GCOAuthAdditions)
-
-// better percent escape
-- (NSString *)pcen;
-
 @end
 
 @implementation GCOAuth
@@ -171,7 +164,7 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     NSURL *URL = self.URL;
     NSString *URLString = [NSString stringWithFormat:@"%@://%@%@",
                            [[URL scheme] lowercaseString],
-                           [[URL host] lowercaseString],
+                           [[URL hostAndPort] lowercaseString],
                            [URL path]];
     
     // create components
@@ -217,7 +210,7 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     time_t t;
     time(&t);
     mktime(gmtime(&t));
-    return [NSString stringWithFormat:@"%u", (t + GCOAuthTimeStampOffset)];
+    return [NSString stringWithFormat:@"%lu", (t + GCOAuthTimeStampOffset)];
 }
 + (NSString *)queryStringFromParameters:(NSDictionary *)parameters {
     NSMutableArray *entries = [NSMutableArray array];
@@ -228,30 +221,14 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     return [entries componentsJoinedByString:@"&"];
 }
 + (NSURLRequest *)URLRequestForPath:(NSString *)path
-                      GETParameters:(NSDictionary *)parameters
-                               host:(NSString *)host
-                        consumerKey:(NSString *)consumerKey
-                     consumerSecret:(NSString *)consumerSecret
-                        accessToken:(NSString *)accessToken
-                        tokenSecret:(NSString *)tokenSecret {
-    return [self URLRequestForPath:path
-                     GETParameters:parameters
-                            scheme:@"http"
-                              host:host
-                       consumerKey:consumerKey
-                    consumerSecret:consumerSecret
-                       accessToken:accessToken
-                       tokenSecret:tokenSecret];
-}
-+ (NSURLRequest *)URLRequestForPath:(NSString *)path
-                      GETParameters:(NSDictionary *)parameters
+                         HTTPMethod:(NSString *)HTTPMethod
+                         parameters:(NSDictionary *)parameters
                              scheme:(NSString *)scheme
                                host:(NSString *)host
                         consumerKey:(NSString *)consumerKey
                      consumerSecret:(NSString *)consumerSecret
                         accessToken:(NSString *)accessToken
                         tokenSecret:(NSString *)tokenSecret {
-    
     // check parameters
     if (host == nil || path == nil) { return nil; }
     
@@ -260,49 +237,28 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                                            consumerSecret:consumerSecret
                                               accessToken:accessToken
                                               tokenSecret:tokenSecret];
-    oauth.HTTPMethod = @"GET";
+    oauth.HTTPMethod = HTTPMethod;
     oauth.requestParameters = parameters;
+        
+    if ([[HTTPMethod uppercaseString] isEqualToString:@"GET"]) {
+        // Handle GET
+        NSString *encodedPath = [path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+        NSString *URLString = [NSString stringWithFormat:@"%@://%@%@", scheme, host, encodedPath];
+        if ([oauth.requestParameters count]) {
+            NSString *query = [GCOAuth queryStringFromParameters:oauth.requestParameters];
+            URLString = [NSString stringWithFormat:@"%@?%@", URLString, query];
+        }
+        oauth.URL = [NSURL URLWithString:URLString];                
+    } else {
+        // All other HTTP methods
+        NSURL *URL = [[NSURL alloc] initWithScheme:scheme host:host path:path];
+        oauth.URL = URL;
+        [URL release];                
+    }    
     
-    // create url
-    NSString *encodedPath = [path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-    NSString *URLString = [NSString stringWithFormat:@"%@://%@%@", scheme, host, encodedPath];
-    if ([oauth.requestParameters count]) {
-        NSString *query = [GCOAuth queryStringFromParameters:oauth.requestParameters];
-        URLString = [NSString stringWithFormat:@"%@?%@", URLString, query];
-    }
-    oauth.URL = [NSURL URLWithString:URLString];
-    
-    // return
-    NSURLRequest *request = [oauth request];
-    [oauth release];
-    return request;
-    
-}
-+ (NSURLRequest *)URLRequestForPath:(NSString *)path
-                     POSTParameters:(NSDictionary *)parameters
-                               host:(NSString *)host
-                        consumerKey:(NSString *)consumerKey
-                     consumerSecret:(NSString *)consumerSecret
-                        accessToken:(NSString *)accessToken
-                        tokenSecret:(NSString *)tokenSecret {
-    
-    // check parameters
-    if (host == nil || path == nil) { return nil; }
-    
-    // create object
-    GCOAuth *oauth = [[GCOAuth alloc] initWithConsumerKey:consumerKey
-                                           consumerSecret:consumerSecret
-                                              accessToken:accessToken
-                                              tokenSecret:tokenSecret];
-    oauth.HTTPMethod = @"POST";
-    oauth.requestParameters = parameters;
-    NSURL *URL = [[NSURL alloc] initWithScheme:@"https" host:host path:path];
-    oauth.URL = URL;
-    [URL release];
-    
-    // create request
     NSMutableURLRequest *request = [oauth request];
-    if ([oauth.requestParameters count]) {
+    if (![[HTTPMethod uppercaseString] isEqualToString:@"GET"] && [oauth.requestParameters count]) {
+        // Add the parameters to the request body for non GET requests
         NSString *query = [GCOAuth queryStringFromParameters:oauth.requestParameters];
         NSData *data = [query dataUsingEncoding:NSUTF8StringEncoding];
         NSString *length = [NSString stringWithFormat:@"%lu", (unsigned long)[data length]];
@@ -314,10 +270,93 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     // return
     [oauth release];
     return request;
+}
++ (NSURLRequest *)URLRequestForPath:(NSString *)path
+                      GETParameters:(NSDictionary *)parameters
+                               host:(NSString *)host
+                        consumerKey:(NSString *)consumerKey
+                     consumerSecret:(NSString *)consumerSecret
+                        accessToken:(NSString *)accessToken
+                        tokenSecret:(NSString *)tokenSecret {
+    return [self URLRequestForPath:path HTTPMethod:@"GET" 
+                        parameters:parameters 
+                            scheme:@"http" 
+                              host:host 
+                       consumerKey:consumerKey 
+                    consumerSecret:consumerSecret 
+                       accessToken:accessToken 
+                       tokenSecret:tokenSecret];
+}
++ (NSURLRequest *)URLRequestForPath:(NSString *)path
+                      GETParameters:(NSDictionary *)parameters
+                             scheme:(NSString *)scheme
+                               host:(NSString *)host
+                        consumerKey:(NSString *)consumerKey
+                     consumerSecret:(NSString *)consumerSecret
+                        accessToken:(NSString *)accessToken
+                        tokenSecret:(NSString *)tokenSecret {
+    
+    return [self URLRequestForPath:path 
+                        HTTPMethod:@"GET" 
+                        parameters:parameters 
+                            scheme:scheme 
+                              host:host 
+                       consumerKey:consumerKey 
+                    consumerSecret:consumerSecret 
+                       accessToken:accessToken 
+                       tokenSecret:tokenSecret];
+}
++ (NSURLRequest *)URLRequestForPath:(NSString *)path
+                     POSTParameters:(NSDictionary *)parameters
+                               host:(NSString *)host
+                        consumerKey:(NSString *)consumerKey
+                     consumerSecret:(NSString *)consumerSecret
+                        accessToken:(NSString *)accessToken
+                        tokenSecret:(NSString *)tokenSecret
+{
+    return [self URLRequestForPath:path 
+                        HTTPMethod:@"POST" 
+                        parameters:parameters 
+                            scheme:@"https" 
+                              host:host 
+                       consumerKey:consumerKey 
+                    consumerSecret:consumerSecret 
+                       accessToken:accessToken 
+                       tokenSecret:tokenSecret];
+}
++ (NSURLRequest *)URLRequestForPath:(NSString *)path
+                     POSTParameters:(NSDictionary *)parameters
+                             scheme:(NSString *)scheme
+                               host:(NSString *)host
+                        consumerKey:(NSString *)consumerKey
+                     consumerSecret:(NSString *)consumerSecret
+                        accessToken:(NSString *)accessToken
+                        tokenSecret:(NSString *)tokenSecret {
+    
+    return [self URLRequestForPath:path 
+                        HTTPMethod:@"POST" 
+                        parameters:parameters 
+                            scheme:scheme 
+                              host:host 
+                       consumerKey:consumerKey 
+                    consumerSecret:consumerSecret 
+                       accessToken:accessToken 
+                       tokenSecret:tokenSecret];
     
 }
 
 @end
+
+@implementation NSURL  (GCOAuthURL)
+- (NSString *)hostAndPort {
+    if ([self port] != nil && [[self port] intValue] != 80 && [[self port] intValue] != 443) {
+        return [NSString stringWithFormat:@"%@:%@", [self host], [self port]];
+    } else {
+        return [self host];
+    }
+}
+@end
+
 @implementation NSString (GCOAuthAdditions)
 - (NSString *)pcen {
     CFStringRef string = CFURLCreateStringByAddingPercentEscapes(NULL,
