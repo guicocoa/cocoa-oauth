@@ -162,10 +162,14 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     
     // construct request url
     NSURL *URL = self.URL;
+    
+    // Use CFURLCopyPath so that the path is preserved with trailing slash, then escape the percents ourselves
+    NSString *pathWithPrevervedTrailingSlash = [CFBridgingRelease(CFURLCopyPath((CFURLRef)URL)) stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+    
     NSString *URLString = [NSString stringWithFormat:@"%@://%@%@",
                            [[URL scheme] lowercaseString],
                            [[URL hostAndPort] lowercaseString],
-                           [URL path]];
+                           pathWithPrevervedTrailingSlash];
     
     // create components
     NSArray *components = [NSArray arrayWithObjects:
@@ -251,7 +255,18 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
         oauth.URL = [NSURL URLWithString:URLString];                
     } else {
         // All other HTTP methods
-        NSURL *URL = [[NSURL alloc] initWithScheme:scheme host:host path:path];
+        // NOTE: To avoid issues with URL's generated with additional trailing
+        // slashes, we avoid using initWithScheme:host:path in favor of initializing
+        // the URL from a string. For details please see Open Radar:
+        // http://openradar.appspot.com/6870881
+        NSMutableString *urlString = [NSMutableString stringWithFormat:@"%@://%@", scheme, host];
+        if (![path hasPrefix:@"/"]) {
+            [urlString appendString:@"/"];
+        }
+        if (path) {
+            [urlString appendString:[path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+        }
+        NSURL *URL = [[NSURL alloc] initWithString:urlString];
         oauth.URL = URL;
         [URL release];                
     }    
