@@ -162,10 +162,14 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     
     // construct request url
     NSURL *URL = self.URL;
+
+	// Use CFURLCopyPath so that the path is preserved with trailing slash, then escape the percents ourselves
+    NSString *pathWithPrevervedTrailingSlash = [CFBridgingRelease(CFURLCopyPath((CFURLRef)URL)) stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+
     NSString *URLString = [NSString stringWithFormat:@"%@://%@%@",
                            [[URL scheme] lowercaseString],
                            [[URL hostAndPort] lowercaseString],
-                           [URL path]];
+                           pathWithPrevervedTrailingSlash];
     
     // create components
     NSArray *components = [NSArray arrayWithObjects:
@@ -239,22 +243,17 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                                               tokenSecret:tokenSecret];
     oauth.HTTPMethod = HTTPMethod;
     oauth.requestParameters = parameters;
-        
+    
+    NSString *encodedPath = [path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+    NSString *URLString = [NSString stringWithFormat:@"%@://%@%@", scheme, host, encodedPath];
     if ([[HTTPMethod uppercaseString] isEqualToString:@"GET"]) {
         // Handle GET
-        NSString *encodedPath = [path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-        NSString *URLString = [NSString stringWithFormat:@"%@://%@%@", scheme, host, encodedPath];
         if ([oauth.requestParameters count]) {
             NSString *query = [GCOAuth queryStringFromParameters:oauth.requestParameters];
             URLString = [NSString stringWithFormat:@"%@?%@", URLString, query];
         }
-        oauth.URL = [NSURL URLWithString:URLString];                
-    } else {
-        // All other HTTP methods
-        NSURL *URL = [[NSURL alloc] initWithScheme:scheme host:host path:path];
-        oauth.URL = URL;
-        [URL release];                
-    }    
+    }
+    oauth.URL = [NSURL URLWithString:URLString];
     
     NSMutableURLRequest *request = [oauth request];
     if (![[HTTPMethod uppercaseString] isEqualToString:@"GET"] && [oauth.requestParameters count]) {
@@ -304,6 +303,41 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                        consumerKey:consumerKey 
                     consumerSecret:consumerSecret 
                        accessToken:accessToken 
+                       tokenSecret:tokenSecret];
+}
++ (NSURLRequest *)URLRequestForPath:(NSString *)path
+                   DELETEParameters:(NSDictionary *)parameters
+                               host:(NSString *)host
+                        consumerKey:(NSString *)consumerKey
+                     consumerSecret:(NSString *)consumerSecret
+                        accessToken:(NSString *)accessToken
+                        tokenSecret:(NSString *)tokenSecret {
+    return [self URLRequestForPath:path
+						HTTPMethod:@"DELETE"
+                        parameters:parameters
+                            scheme:@"http"
+                              host:host
+                       consumerKey:consumerKey
+                    consumerSecret:consumerSecret
+                       accessToken:accessToken
+                       tokenSecret:tokenSecret];
+}
++ (NSURLRequest *)URLRequestForPath:(NSString *)path
+                   DELETEParameters:(NSDictionary *)parameters
+                             scheme:(NSString *)scheme
+                               host:(NSString *)host
+                        consumerKey:(NSString *)consumerKey
+                     consumerSecret:(NSString *)consumerSecret
+                        accessToken:(NSString *)accessToken
+                        tokenSecret:(NSString *)tokenSecret {
+    return [self URLRequestForPath:path
+						HTTPMethod:@"DELETE"
+                        parameters:parameters
+                            scheme:scheme
+                              host:host
+                       consumerKey:consumerKey
+                    consumerSecret:consumerSecret
+                       accessToken:accessToken
                        tokenSecret:tokenSecret];
 }
 + (NSURLRequest *)URLRequestForPath:(NSString *)path
